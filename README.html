@@ -1,0 +1,182 @@
+<html>
+ <head>
+  <title>MTrace</title>
+ </head>
+ <body>
+  <h1>MTrace &ndash; Stack traces of memory leaks</h1>
+  <h2>Compile</h2>
+    <p>
+      To build mtrace, just type <code>make</code>.  You need
+      <code>libelf</code> (from <code>elfutils</code>).  If you're
+      using RedHat you need <code>elfutils-devel</code> installed too.
+      This should build <code>libmtrace.so</code>.  mtrace uses
+      <code>glibc</code> specific hooks into memory allocation and
+      shared libraries, so it will probably only work on Linux.
+    </p>
+  <h2>Running</h2>
+    <p>
+      Run your program, but use <code>LD_PRELOAD</code> to load
+      <code>libmtrace.so</code>:
+      <blockquote>
+        <code>LD_PRELOAD=./libmtrace.so </code><var>your_program</var>
+      </blockquote>
+      When your program exits, a report is generated.  Alternatively you
+      can generate a report manually by sending it <code>SIGUSR1</code>:
+      <blockquote>
+         <code>killall -USR1 </code><var>your_program</var>
+      </blockquote>
+      Note that the signal is not processed until the next call to
+      <code>malloc</code>, so if your application is idle the report
+      might not be generated immediately.
+    </p>
+  <h2>Output</h2>
+    <p>
+      The reports are written to files in the working directory and are
+      named like this:
+      <blockquote>
+        <var>your_program</var><code>-</code><var>pid</var><code>-</code><var>seq</var><code></code>.memlog</code>
+      </blockquote>
+      "<var>pid</var>" is the process ID, and "<var>seq</var>"
+      starts at 1 and increments each time you produce a report.
+    </p>
+    <p>
+      The report file is a list of entries, each entry looking like this:
+      <pre>
++63360
+        g_realloc       (/usr/lib/libglib-2.0.so.0)
+        g_closure_add_invalidate_notifier       (/usr/lib/libgobject-2.0.so.0)
+        quick_accel_add (/usr/lib/libgtk-x11-2.0.so.0)
+        gtk_accel_group_connect (/usr/lib/libgtk-x11-2.0.so.0)
+        gtk_widget_add_accelerator      (/usr/lib/libgtk-x11-2.0.so.0)
+        /usr/lib/libbonoboui-2.so.0
+        bonobo_ui_sync_state    (/usr/lib/libbonoboui-2.so.0)
+        /usr/lib/libbonoboui-2.so.0
+        /usr/lib/libbonoboui-2.so.0
+        /usr/lib/libbonoboui-2.so.0
+</pre>
+      The number (<code>+63360</code>) is the number of bytes
+      allocated from the stack trace, which has the innermost function
+      (the one that called <code>malloc</code>) first.
+    </p>
+    <p>
+      The entries are sorted by the number of bytes, largest first.
+    </p>
+  <h2>Multiple Reports</h2>
+    <p>
+      Using <code>SIGUSR1</code>, you can generate multiple reports
+      from a single process.  When you do this, the second and
+      subsequent reports are incremental.  <code>malloc</code>s since
+      the last report add to the bytes for a stack trace, while
+      <code>free</code>s subtract from the stack trace <emph>of the
+      corresponding malloc</emph>.
+    </p>
+    <p>
+      This means that you will see negative numbers in incremental reports.
+    </p>
+  <h2>Tips</h2>
+    <p>
+      Generally incremental reports are most useful for tracking down
+      memory leaks.  The first report contains all the memory
+      allocated at start up, which is usually quite a lot.  Second and
+      subsequent reports show changes, which are where leaks show up
+      most clearly.
+    </p>
+    <p>
+      Because we're tracking all allocations, you have to distinguish
+      between wanted memory usage and memory leaks.  The easiest way
+      to do this is to take increment reports between two points where
+      memory usage should be identical.
+    </p>
+      For example, if you're tracking down leaks in a web-browser, do
+      something like this:
+      <ul>
+        <li>Start the browser and go to your home page.</li>
+	<li>Take an incremental report and throw it away.</li>
+	<li>Browse web-sites for a while.</li>
+	<li>
+	  Close all browser windows except one, and go back to your
+	  home page.
+	</li>
+        <li>Take another incremental reports.</li>
+      </ul>
+      If you have a significant memory leak, then it'll probably be at
+      the top of the second incremental report.  There will probably
+      still be some "noise" in the report, e.g., because the browser
+      keeps a record of the pages you've been to, or because plugins
+      have been loaded.
+    </p>
+    <p>
+      Repeating the steps above again will reduce the noise, and
+      taking longer between incremental reports will make any leaks
+      leak even more memory.
+    </p>
+    <p>
+      If you're debugging a server application, then send it the signal when
+      it's idle.  Alternatively, you can put code into the application to send
+      itself a signal at an appropriate point:
+      <blockquote><code>kill (getpid(), SIGUSR1);</code></blockquote>
+    </p>
+  <h2>Tweaking</h2>
+    <p>
+      There's a couple of things you can tweak to make mtrace more usable.
+    </p>
+    <p>
+      First, make sure that the programs and libraries you're
+      interested in are not stripped.  That way mtrace can do much
+      better at finding function names.
+    </p>
+    <p>
+      mtrace works just fine with optimised binaries.  However,
+      inlined functions won't show up on the stack trace.  Compile
+      with <code>-fno-inline</code> to see them.  Sometimes you want
+      them, sometimes you don't.
+    </p>
+    <p>
+      By default, mtrace takes stack traces 10 deep.  This can be
+      adjusted by changing the <code>#define STACK_SIZE</code> in
+      <code>mtrace.c</code>.
+    </p>
+    <p>
+      If <code>STACK_SIZE</code> is too large, then you may see many
+      similar stack traces in the report file, differing only by the
+      last few items on the stack trace.  In that case, decreasing
+      <code>STACK_SIZE</code> will cause the items to be merged.
+      Reducing <code>STACK_SIZE</code> is especially effective if you
+      see both postive and negative numbers in an incremental report:
+      in this case, reducing <code>STACK_SIZE</code can cause the
+      positive and negative reports to cancel.
+    </p>
+    <p>
+      If the stack traces don't contain enough information, e.g., they
+      only contain low-level functions that are used throughout your
+      application, then increasing <code>STACK_SIZE</code> will give
+      you more information.
+    </p>
+    <p>
+      If you have code that layers caching on top of <code>malloc</code> and
+      <code>free</code>, then this can cause confusion: the leak may occur
+      after memory has been recycled from the cache, but it is the original
+      call to <code>malloc</code> that gets the blame.  The best thing to do at
+      the moment is to disable the cache &mdash; your program might have a
+      build option or a <code>#define</code> to acheive that.
+    </p>
+  <h2>Todo</h2>
+    <p>
+      Add hooks to give programatic access to <code>libmtrace.so</code>:
+      <ul>
+        <li>
+	  Synchronous generation of reports, rather than relying on
+	  signals.
+        </li>
+	<li>
+          Let users record their own allocations, either for cached allocators,
+          or for resources other than memory.
+	</li>
+      </ul>
+    </p>
+    <p>
+      Use the Dwarf debug info to get line numbers, rather than just function
+      names.
+    </p>
+</body>
+</html>
