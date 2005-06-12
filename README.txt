@@ -1,3 +1,5 @@
+oprofile now does call graphs.  Use that instead - it's much better.
+
 The Sampling Call Graph profiler
 ================================
 
