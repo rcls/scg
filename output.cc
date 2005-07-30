@@ -22,6 +22,7 @@ struct scg_function_record;
 /* Using the normal STL iterators seems to blow up if we are run during
  * shutdown.  Using malloc seems to be better behaved. */
 
+#if 0
 template <class E>
 struct malloc_allocator :
    std::__allocator <E, std::__malloc_alloc_template<0> >
@@ -41,6 +42,13 @@ typedef malloc_map <scg_function_record *, size_t> record_counts;
 
 typedef std::basic_string <char, std::char_traits<char>,
                            malloc_allocator <char> > scg_string;
+
+#else
+
+typedef std::string scg_string;
+typedef std::map <scg_function_record *, size_t> record_counts;
+
+#endif
 
 struct scg_function_record {
    scg_function_record() :
