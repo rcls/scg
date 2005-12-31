@@ -29,6 +29,11 @@
 #define OVERHEADS 0
 #endif
 
+/* Poison freed memory?  */
+#ifndef POISON
+#define POISON 0
+#endif
+
 /* Are we currently inside the memory tracing code?  */
 static int depth;
 
@@ -91,7 +96,7 @@ typedef struct StackTrace
 
    ssize_t     bytes;		/* Bytes outstanding on this stack. */
    size_t      refs;		/* Reference count.  */
-  const void * stack [STACK_SIZE]; /* Stack trace (NULL padded). */
+   const void * stack [STACK_SIZE]; /* Stack trace (NULL padded). */
 } StackTrace;
 
 /* The hash table.  */
@@ -143,9 +148,10 @@ static inline MemRecord ** mem_bucket (void * p)
  *****************************************************************************/
 static inline void free_StackTrace (StackTrace * p)
 {
-   *p->prevnext = p->next;
-   if (p->next)
-      p->next->prevnext = p->prevnext;
+   StackTrace * next = p->next;
+   *p->prevnext = next;
+   if (next)
+      next->prevnext = p->prevnext;
    __libc_free (p);
 }
 static inline void free_MemRecord (MemRecord * p, MemRecord ** pp)
@@ -263,6 +269,9 @@ static void record_free (void * ptr)
 	 StackTrace * stack = it->stack;
 	 stack->bytes -= account (it->bytes);
 	 global_bytes -= account (it->bytes);
+#if POISON
+	 memset (ptr, 0xcd, it->bytes);
+#endif
 	 --stack->refs;
 	 if (stack->bytes == 0 && stack->refs == 0)
 	    free_StackTrace (stack);
@@ -317,8 +326,11 @@ void free (void * ptr)
  *****************************************************************************/
 void * realloc (void * ptr, size_t bytes)
 {
-   record_free (ptr);
-   return record_malloc (__libc_realloc (ptr, bytes), bytes);
+   void * ret = __libc_realloc (ptr, bytes);
+   // FIXME - this is not right if we are poisoning.
+   if (ret != NULL)
+      record_free (ptr);	/* Handles ptr == NULL.  */
+   return record_malloc (ret, bytes); /* Handles ret = NULL.  */
 }
 
 /******************************************************************************
@@ -357,6 +369,7 @@ ALIAS (_Znwm, malloc);		/* new(unsigned long) */
 ALIAS (_Znam, malloc);		/* new[](unsigned long) */
 ALIAS (_ZdlPv, free);		/* delete(void *) */
 ALIAS (_ZdaPv, free);		/* delete[](void *) */
+
 
 /******************************************************************************
  * Report data structures.
@@ -400,7 +413,7 @@ void print_report (void)
    /* Do this before we start doing stuff with the hash tables, just in case
     * allocations within the symbol table stuff ends up modifying them.
     * (mallocs there are fine, because they won't be recorded, but reallocs and
-    * frees are more problemnatic.  */
+    * frees are more problematic.  */
    reflect_symtab_create();
 
    /* Count the number of changed entries in the hash table.  */

@@ -29,7 +29,7 @@ static void process (const char * filename)
     exit (1);
   }
 
-  int section_count;		/* Number of sections.  */
+  unsigned section_count;		/* Number of sections.  */
   if (elf_getshnum (elf, &section_count) < 0) {
     fprintf (stderr, "Cannot get number of sections: %s", elf_errmsg (-1));
     exit (1);
