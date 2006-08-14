@@ -147,7 +147,7 @@ void scg_thread_initialize (void)
    timer.it_value   .tv_sec  = 0;
    timer.it_value   .tv_usec = 10000;
 
-   setitimer (ITIMER_PROF, &timer, NULL);
+   setitimer (ITIMER_REAL, &timer, NULL);
 }
 
 /* Setup the signal handler and timer. */
@@ -160,6 +160,7 @@ void scg_initialize (void)
    sigemptyset (&action.sa_mask);
 
    sigaction (SIGPROF, &action, NULL);
+   sigaction (SIGALRM, &action, NULL);
 
    is_initialized = 1;
 
