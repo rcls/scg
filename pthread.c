@@ -28,10 +28,12 @@ static void * my_thread_func (void * p)
    return function (arg);
 }
 
-int pthread_create (pthread_t * __restrict            thread,
-		    const pthread_attr_t * __restrict attr,
-		    thread_func                       function,
-		    void *                            arg)
+__asm__ ("\n.symver my_pthread_create, pthread_create@@GLIBC_2.1\n");
+
+int my_pthread_create (pthread_t * __restrict            thread,
+                       const pthread_attr_t * __restrict attr,
+                       thread_func                       function,
+                       void *                            arg)
 {
    context_t * context = (context_t *) malloc (sizeof (context_t));
    int ret;

@@ -11,6 +11,8 @@
 
 scg_node_t * volatile scg_node_hash[SCG_NODE_HASH_SIZE];
 
+static volatile int enabled;
+
 typedef struct {
    const scg_address_t * saved_base_pointer;
    scg_address_t         return_address;
@@ -18,6 +20,9 @@ typedef struct {
 
 static void scg_signal_handler (int signal, siginfo_t * info, void * p)
 {
+/*     if (!enabled) */
+/*         return; */
+
    scg_node_t *          new_node;
    scg_node_t *          next = NULL;
    const scg_address_t * old_frame;
@@ -136,18 +141,27 @@ void scg_thread_initialize (void)
 {
    struct itimerval timer;
 
-   if (!is_initialized) {
+   if (!is_initialized)
       return;
-   }
 
    /* Fire 500 times / second. */
    timer.it_interval.tv_sec  = 0;
-   timer.it_interval.tv_usec = 10000;
+   timer.it_interval.tv_usec = 2000;
 
    timer.it_value   .tv_sec  = 0;
-   timer.it_value   .tv_usec = 10000;
+   timer.it_value   .tv_usec = 2000;
 
-   setitimer (ITIMER_REAL, &timer, NULL);
+   setitimer (ITIMER_PROF, &timer, NULL);
+}
+
+static void user1_handler (int signal, siginfo_t * info, void * p)
+{
+    enabled = 1;
+}
+
+static void user2_handler (int signal, siginfo_t * info, void * p)
+{
+    enabled = 0;
 }
 
 /* Setup the signal handler and timer. */
@@ -160,7 +174,13 @@ void scg_initialize (void)
    sigemptyset (&action.sa_mask);
 
    sigaction (SIGPROF, &action, NULL);
-   sigaction (SIGALRM, &action, NULL);
+//   sigaction (SIGALRM, &action, NULL);
+
+   action.sa_sigaction = user1_handler;
+   sigaction (SIGUSR1, &action, NULL);
+
+   action.sa_sigaction = user2_handler;
+   sigaction (SIGUSR2, &action, NULL);
 
    is_initialized = 1;
 

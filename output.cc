@@ -15,6 +15,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string.h>
 #include <vector>
 
 struct scg_function_record;
@@ -34,11 +35,6 @@ struct malloc_map :
 { };
 
 typedef malloc_map <scg_function_record *, size_t> record_counts;
-
-// Work around non-standard G++-2 lib...
-#if __GNUC__ == 2
-#define char_traits string_char_traits
-#endif
 
 typedef std::basic_string <char, std::char_traits<char>,
                            malloc_allocator <char> > scg_string;
