@@ -89,7 +89,7 @@ static int build_elf_object_1 (struct dl_phdr_info * info,
 	 max_vaddress = header->p_vaddr + header->p_memsz;
    }
 
-   it->address = (void *) min_vaddress + it->delta;
+   it->address = ((char *) min_vaddress) + it->delta;
    it->size = max_vaddress - min_vaddress;
 
    /* Assume that no name is the main program...  */
@@ -303,7 +303,7 @@ static void fill_in_elf_object (ElfObject * it)
 
       /* st_value is 64 bits in the gelf stuff, so need to cast to
 	 avoid warnings.  */
-      s->address = (void *) (size_t) symbol.st_value + it->delta;
+      s->address = ((char *) (size_t) symbol.st_value) + it->delta;
       s->size = symbol.st_size;
       s->name = elf_strptr (it->elf,
 			    section_header.sh_link,
@@ -399,7 +399,7 @@ void reflect_symtab_lookup (const char ** object,
       else
 	 range /= 2;
 
-   if ((size_t) (address - o->address) > o->size) {
+   if ((size_t) (((char *) address) - ((char *) o->address)) > o->size) {
 #ifdef DEBUG
       fprintf (stderr, "Lookup : object not found\n");
 #endif
@@ -409,7 +409,7 @@ void reflect_symtab_lookup (const char ** object,
    fill_in_elf_object (o);
 
    *object = o->name;
-   *offset = address - o->address;
+   *offset = ((char *) address) - ((char *) o->address);
 
    /* Now try for the symbol.  */
    if (o->symbols_count == 0) {
@@ -429,7 +429,7 @@ void reflect_symtab_lookup (const char ** object,
       else
 	 range /= 2;
 
-   if ((size_t) (address - s->address) > s->size) {
+   if ((size_t) (((char *) address) - ((char *) s->address)) > s->size) {
 #ifdef DEBUG
       fprintf (stderr, "%s %p %i\n", s->name, s->address, s->size);
       fprintf (stderr, "Lookup : out of range\n");
@@ -438,7 +438,7 @@ void reflect_symtab_lookup (const char ** object,
    }
 
    *symbol = s->name;
-   *offset = address - s->address;
+   *offset = ((char *) address) - ((char *) s->address);
 }
 
 char * reflect_symtab_format (const void * const * addresses,
