@@ -194,7 +194,7 @@ static void open_elf_object (ElfObject * it)
       return;
 
    char * debug_filename;
-   if (asprintf (&debug_filename, "/usr/lib/debug%.*s%s",
+   if (asprintf (&debug_filename, "/usr/lib/debug/lib%.*s%s",
 		 filename_slash - it->filename + 1, it->filename,
 		 (const char *) data->d_buf) < 0)
       return;
