@@ -6,6 +6,7 @@
 
 #include "atomic.h"
 #include "node.h"
+#include "scg.h"
 
 #define GOLDEN_PRIME 2663455159ul
 
@@ -156,12 +157,13 @@ void scg_thread_initialize (void)
 
 static void user1_handler (int signal, siginfo_t * info, void * p)
 {
-    enabled = 1;
+//    enabled = 1;
 }
 
 static void user2_handler (int signal, siginfo_t * info, void * p)
 {
-    enabled = 0;
+//    enabled = 0;
+    scg_output_profile();
 }
 
 /* Setup the signal handler and timer. */
