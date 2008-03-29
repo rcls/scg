@@ -161,6 +161,10 @@ static void open_elf_object (ElfObject * it)
    if (it->elf == NULL)
       return;
 
+#if 1
+   return;
+#endif
+
    size_t shstrndx;		/* Section Header STRings iNDeX.  */
    if (elf_getshstrndx (it->elf, &shstrndx) < 0)
       return;
@@ -190,11 +194,14 @@ static void open_elf_object (ElfObject * it)
    /* Now create the debug file name: /usr/lib/debug/ +
       dirname(it->file) + debuglink */
    const char * filename_slash = strrchr (it->filename, '/');
+#ifdef DEBUG
+   fprintf (stderr, "Library filename = %s\n", it->filename);
+#endif
    if (filename_slash == NULL)
       return;
 
    char * debug_filename;
-   if (asprintf (&debug_filename, "/usr/lib/debug/lib%.*s%s",
+   if (asprintf (&debug_filename, "/usr/lib/debug/%.*s%s",
 		 filename_slash - it->filename + 1, it->filename,
 		 (const char *) data->d_buf) < 0)
       return;
@@ -206,8 +213,11 @@ static void open_elf_object (ElfObject * it)
    /* Now try and load the debug info elf object.  */
    int debug_fd = open (debug_filename, O_RDONLY);
    free (debug_filename);
-   if (debug_fd < 0)
+   if (debug_fd < 0) {
+      fprintf (stderr, "open debug info %s for %s failed.\n",
+               debug_filename, it->name);
       return;
+   }
 
    Elf * debug_elf = elf_begin (debug_fd, ELF_C_READ_MMAP, NULL);
    if (debug_elf == NULL) {
@@ -243,11 +253,22 @@ static void fill_in_elf_object (ElfObject * it)
    if (it->elf == NULL)
       goto failed;
 
+   size_t shstrndx;		/* Section Header STRings iNDeX.  */
+   if (elf_getshstrndx (it->elf, &shstrndx) < 0)
+      return;
+
+
    /* Look for a symtab.  */
    Elf_Scn *  section = NULL;
    GElf_Shdr  section_header;
    while ((section = elf_nextscn (it->elf, section))) {
       gelf_getshdr (section, &section_header);
+#ifdef DEBUG
+      fprintf (stderr, "sh-type = %u\n", section_header.sh_type);
+      const char * name = elf_strptr (it->elf, shstrndx, section_header.sh_name);
+      if (name != NULL)
+          fprintf (stderr, "section name = %s\n", name);
+#endif
       if (section_header.sh_type == SHT_SYMTAB)
 	 break;
    }
@@ -258,13 +279,17 @@ static void fill_in_elf_object (ElfObject * it)
 	 if (section_header.sh_type == SHT_DYNSYM)
 	    break;
       }
-   if (section == NULL)
+   if (section == NULL) {
+      fprintf (stderr, "No SYMTAB or DYNSYM in %s\n", it->filename);
       goto failed;
+   }
 
    /* Get the symbol table data.  */
    Elf_Data * symbol_data = elf_getdata (section, NULL);
-   if (symbol_data == NULL)
+   if (symbol_data == NULL) {
+      fprintf (stderr, "No section data in %s\n", it->name);
       goto failed;
+   }
 
    /* Number of symbols.  We won't actually be interested in them all, but
       it's not going to be excessively large.  */
@@ -333,9 +358,9 @@ static void fill_in_elf_object (ElfObject * it)
    return;
 
  failed:
-#ifdef DEBUG
+//#ifdef DEBUG
    fprintf (stderr, "Loading elf object %s FAILED\n", it->name);
-#endif
+//#endif
    if (it->elf) {
       elf_end (it->elf);
       it->elf = NULL;
