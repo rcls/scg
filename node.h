@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-typedef void * scg_address_t;
+typedef const void * scg_address_t;
 
 typedef struct scg_node_t {
    scg_address_t       address;   /* Return address from stack frame. */
@@ -26,7 +26,7 @@ typedef struct scg_node_t {
    struct scg_node_t * volatile hash_link;
 } scg_node_t;
 
-/* Hash table has 1048675 entries... */
+/* Hash table has 1048676 entries... */
 #define SCG_NODE_HASH_ORDER 20
 #define SCG_NODE_HASH_SIZE (1 << 20)
 

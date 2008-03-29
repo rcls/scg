@@ -11,10 +11,9 @@ This is a profiler that generates call graphs of CPU usage.
 
 Easy Usage:
 
-Don't compile with -fomit-frame-pointer.  Link program with -rdynamic.  Set
-LD_PRELOAD=libscg.so in the environment and run the program.  If you want the
-output going to a file instead of stderr, set the environment variable
-SCG_OUTPUT to the file name.
+Don't compile with -fomit-frame-pointer.  Set LD_PRELOAD=libscg.so in the
+environment and run the program.  If you want the output going to a file instead
+of stderr, set the environment variable SCG_OUTPUT to the file name.
 
 Hard Usage:
 
@@ -30,5 +29,3 @@ Hard Usage:
 TODO:
 
 (*) Find a way of automatically profiling threads.
-
-(*) Remove the need for linking with -rdynamic.

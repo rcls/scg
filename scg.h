@@ -1,4 +1,3 @@
-
 #ifndef SCG_H_
 #define SCG_H_
 

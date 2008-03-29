@@ -2,18 +2,21 @@
 #include "scg.h"
 
 #include <stdio.h>
+#include <signal.h>
+#include <unistd.h>
 
 int fib0 (void)
 {
-   return 0;
+    kill (getpid(), 0);
+    return 0;
 }
 
 int fib1 (void)
 {
-   return 1;
+    return 1;
 }
 
-#define FIB(A,B,C) int A (void) { int ret = C(); int i; for (i = 0; i != 2; ++i) ret += B(); return ret; }
+#define FIB(A,B,C) int A (void) { return B() + C(); }
 
 FIB(fib2,fib1,fib0)
 FIB(fib3,fib2,fib1)
@@ -70,15 +73,14 @@ FIB(fib49,fib48,fib47)
 FIB(fib50,fib49,fib48)
 FIB(fib51,fib50,fib49)
 
-#include <sys/time.h>
 
 int main()
 {
-  //   scg_initialize();
+//   scg_initialize();
 
-   printf ("%i\n", fib24());
+    printf ("%i\n", fib30());
 
-   //   scg_output_profile();
+//   scg_output_profile();
 
-   return 0;
+    return 0;
 }
