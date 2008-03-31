@@ -6,7 +6,7 @@
 
 /* Automatically call the profiling functions. */
 
-/* Provide your own definition of scg_auto_start to surpress automatic
+/* Provide your own definition of scg_auto_start to suppress automatic
  * invocation.  */
 void scg_auto_start (void) __attribute__ ((constructor,weak));
 static void scg_auto_stop (void);

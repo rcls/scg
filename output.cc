@@ -72,7 +72,7 @@ struct scg_function_record {
     // The number of times that we have occured as the innermost element on the
     // stack.
     int            terminal_count;
-    // Call_counts[i] is number of sample with the function occuring i+1
+    // Call_counts[i] is number of samples with the function occuring i+1
     // times in the stack.
     int_vector     call_count_breakdown;
 

@@ -63,6 +63,7 @@ static scg_node_t * scg_put_node (scg_node_t * current,
 }
 
 
+#if 0
 static void scg_signal_handler (int signal, siginfo_t * info, void * p)
 {
 /*     if (!enabled) */
@@ -87,8 +88,8 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
      * If we are in the prologue, then we "fast forward" the instructions.  If
      * we are on a ret, then we "rewind" the pop.
      */
-    if ((address[0] == 0x55 && address[1] == 0x89 && address[2] == 0xe5) ||
-        (address[0] == 0xc3)) {
+    if (address[0] == 0x55 /*&& address[1] == 0x89 && address[2] == 0xe5)*/ ||
+        address[0] == 0xc3) {
         /* We are before the "push %ebp; mov %esp,%ebp" or after the "pop %ebp".
          * Generate a dummy stack frame and use it.  */
         dummy_frame[0] = frame;
@@ -96,7 +97,8 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
 
         frame = dummy_frame;
     }
-    else if (address[0] == 0x89 && address[1] == 0xe5) {
+    else if (address[-1] == 0x55 ||
+             (address[0] == 0x89 && address[1] == 0xe5)) {
         /* We are just before the mov %esp,%ebp.  Pretend that has been done. */
         frame = stack;
     }
@@ -128,6 +130,52 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
     /* FIXME - we potentially leak new_node here... this is not going to happen
      * very often in real life - not worth worrying about!!! */
 }
+#else
+#include <libunwind.h>
+#include <string.h>
+#include <unistd.h>
+#define CHECK(s) check(s, #s "\n")
+static inline int check (int s, const char * w)
+{
+    if (s >= 0)
+        return s;
+    write (2, w, strlen (w));
+    abort();
+}
+static void scg_signal_handler (int signal, siginfo_t * info, void * p)
+{
+/*     if (!enabled) */
+/*         return; */
+    scg_node_t * new_node = NULL;
+    scg_node_t * node = NULL;
+
+    /* Setup the stack frame data. */
+/*    const ucontext_t * context = (const ucontext_t *) p; */
+/*    ucontext_t ct = * (const ucontext_t *) p; */
+/*    ct.uc_stack.ss_sp = (void*) ct.uc_mcontext.gregs[REG_ESP]; */
+    unw_context_t context;
+    CHECK (unw_getcontext (&context));
+
+    unw_cursor_t cursor;
+    CHECK (unw_init_local (&cursor, &context));
+    do {
+        unw_word_t ip = 0;
+        CHECK (unw_get_reg (&cursor, UNW_X86_EIP, &ip));
+        node = scg_put_node (node, (scg_address_t) ip, &new_node);
+/*         unw_proc_info_t pi; */
+/*         CHECK (unw_get_proc_info (&cursor, &pi)); */
+/*         node = scg_put_node (node, (scg_address_t) pi.start_ip, &new_node); */
+/*         if (pi.unwind_info == NULL) */
+/*             abort(); */
+/*         if (ip > 0xbf000000 && ip < 0xc0000000) */
+/*             abort(); */
+    }
+    while (CHECK (unw_step (&cursor)) > 0);
+
+    scg_atomic_increment (&node->counter);
+}
+#endif
+
 
 static int is_initialized;
 
