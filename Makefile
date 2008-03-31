@@ -1,5 +1,5 @@
 
-include ../Rules.mk
+include Rules.mk
 
 CFLAGS += -Imtrace -fasynchronous-unwind-tables
 CXXFLAGS += -Imtrace -fasynchronous-unwind-tables
