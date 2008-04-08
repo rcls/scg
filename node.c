@@ -13,7 +13,9 @@
 
 scg_node_t * volatile scg_node_hash[SCG_NODE_HASH_SIZE];
 
-static volatile int enabled;
+//static volatile int enabled;
+
+/* int bad_frame_bail; */
 
 
 static scg_node_t * scg_put_node (scg_node_t * current,
@@ -39,6 +41,12 @@ static scg_node_t * scg_put_node (scg_node_t * current,
             if (*new_node == NULL)
                 *new_node = scg_allocate_node();
 
+   /* If the supposed frame pointer is unreasonable, then bail now. */
+/*    if (((unsigned long) frame) < context->esp || */
+/*        ((unsigned long) frame) > context->esp + 0x10000) { */
+/*        ++bad_frame_bail; */
+/*        return; */
+/*    } */
             (*new_node)->address = (scg_address_t) address;
             (*new_node)->next = current;
             (*new_node)->counter = 0;
@@ -63,7 +71,7 @@ static scg_node_t * scg_put_node (scg_node_t * current,
 }
 
 
-#if 0
+#if 1
 static void scg_signal_handler (int signal, siginfo_t * info, void * p)
 {
 /*     if (!enabled) */
@@ -122,7 +130,7 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
     }
     /* FIXME - need more precise test. */
     while (((unsigned long) frame) > ((unsigned long) old_frame) &&
-           ((unsigned long) frame) < ((unsigned long) old_frame) + 0x10000);
+           ((unsigned long) frame) < ((unsigned long) old_frame) + 0x100000);
 
     /* Now increment the counter. */
     scg_atomic_increment (&node->counter);
@@ -230,3 +238,14 @@ void scg_initialize (void)
 
     scg_thread_initialize();
 }
+
+// Dirty hack to monitor calls to new().
+/* void * _Znwj (unsigned int n) */
+/* { */
+/*     if (is_initialized) { */
+/*         ucontext_t c; */
+/*         getcontext (&c); */
+/*         scg_signal_handler (0, NULL, &c); */
+/*     } */
+/*     return malloc (n); */
+/* } */

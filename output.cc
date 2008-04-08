@@ -211,6 +211,9 @@ void scg_database::output (FILE * out_file) const
     fprintf (out_file, "Profile for %s with %lu samples.\n",
              program_invocation_short_name, total_samples);
 
+//    extern int bad_frame_bail;
+//    fprintf (out_file, "bad_frame_bail = %u\n", bad_frame_bail);
+
     for (sorted_t::reverse_iterator i = sorted.rbegin();
          i != sorted.rend(); ++i) {
         i->second->output (out_file, total_samples);
@@ -242,13 +245,13 @@ void scg_function_record::output (FILE *        out_file,
 
     /* Output the function name with the call count(s). */
     if (call_count_breakdown.size() <= 1) {
-        fprintf (out_file, "%s\t%i/%i (%.2f%%/%.2f%%)\n", name.c_str(),
+        fprintf (out_file, "+%s\t%i/%i (%.2f%%/%.2f%%)\n", name.c_str(),
                  terminal_count, call_count,
                  terminal_count * 1e2 / total_samples,
                  call_count * 1e2 / total_samples);
     }
     else {
-        fprintf (out_file, "%s\t%i/%i (",
+        fprintf (out_file, "+%s\t%i/%i (",
                  name.c_str(), terminal_count, call_count);
         for (int_vector::const_iterator i = call_count_breakdown.begin();
              i != call_count_breakdown.end(); ++i) {
