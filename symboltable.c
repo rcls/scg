@@ -96,8 +96,14 @@ static int build_elf_object_1 (struct dl_phdr_info * info,
     it->name = info->dlpi_name;
     it->filename = it->name;
     if (it->name == NULL || it->name[0] == '\0') {
-        it->name = program_invocation_short_name;
-        it->filename = main_program_path();
+        if (((Elf32_Ehdr *) it->address)->e_type == ET_EXEC) {
+            it->name = program_invocation_short_name;
+            it->filename = main_program_path();
+        }
+        else {
+            it->name = "linux-gate.so.1";
+            it->filename = "linux-gate.so.1";
+        }
     }
 
     it->elf = 0;
@@ -317,7 +323,7 @@ static Elf_Scn * get_symtab (ElfObject * it, GElf_Shdr * header)
 static void fill_in_elf_object (ElfObject * it)
 {
     /* If we're already filled in, or we've already failed, do nothing.  */
-    if (it->fd != -1 || it->filename == NULL)
+    if (it->elf != NULL || it->filename == NULL)
         return;
 
 #ifdef DEBUG
