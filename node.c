@@ -89,6 +89,24 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
         = (const scg_address_t *) context->uc_mcontext.gregs[REG_EBP];
     scg_address_t dummy_frame[2];
 
+    /* Deal with hits in the PLT tables.  */
+    if (address[0] == 0xff && address[1] == 0xa3) {
+        // The ebx-relative indirect jump in the SO PLT tables.
+        const scg_address_t * ptr = (const scg_address_t *)
+            (context->uc_mcontext.gregs[REG_EBX]
+             + address[2] + address[3] * 256);
+        if ((3 & (unsigned) ptr) == 0)
+            address = *ptr;
+    }
+    if (address[0] == 0xff && address[1] == 0x25) {
+        // The absolute indirect jump in the main PLT.
+        const scg_address_t * ptr = (const scg_address_t *) (
+            address[2] + address[3] * 256
+            + (address[4] << 16) + (address[5] << 24));
+        if ((3 & (unsigned) ptr) == 0)
+            address = *ptr;
+    }
+
     /* We attempt to deal with corner cases during function entry and exit.
      * The prologue is "push %ebp (0x55), mox %esp,%ebp (0x89 0xe5)" and the
      * epilogue is "pop %ebp, ret (0xc3)".
@@ -129,7 +147,8 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
 
     }
     /* FIXME - need more precise test. */
-    while (((unsigned long) frame) > ((unsigned long) old_frame) &&
+    while ((3 & (unsigned long) frame) == 0 &&
+           ((unsigned long) frame) > ((unsigned long) old_frame) &&
            ((unsigned long) frame) < ((unsigned long) old_frame) + 0x100000);
 
     /* Now increment the counter. */
