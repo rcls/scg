@@ -25,22 +25,22 @@ typedef struct ElfSymbol
 /* A struct representing an ELF object in memory.  */
 typedef struct ElfObject
 {
-   const void * address;	/* Start of first PT_LOAD segment.  */
-   size_t       size;		/* Size to cover all PT_LOAD segments.  */
-   ssize_t      delta;		/* mapped address - object address.  */
+    const void * address;               /* Start of first PT_LOAD segment.  */
+    size_t       size;                /* Size to cover all PT_LOAD segments.  */
+    ssize_t      delta;                 /* mapped address - object address.  */
 
-   /* Name and file name.  filename is set to NULL on load failure.  */
-   const char * name;
-   const char * filename;
+    /* Name and file name.  filename is set to NULL on load failure.  */
+    const char * name;
+    const char * filename;
 
-   /* libelf object.  Maybe null.  */
-   Elf *        elf;
-   /* File descriptor.  -1 means none.  */
-   int          fd;
+    /* libelf object.  Maybe null.  */
+    Elf *        elf;
+    /* File descriptor.  -1 means none.  */
+    int          fd;
 
-   /* Number and array of symbols.  */
-   size_t       symbols_count;
-   ElfSymbol *  symbols;
+    /* Number and array of symbols.  */
+    size_t       symbols_count;
+    ElfSymbol *  symbols;
 } ElfObject;
 
 /* Storage for the known elf objects.  */
@@ -60,57 +60,57 @@ static const char * main_program_path (void)
 static int build_elf_object_1 (struct dl_phdr_info * info,
 			       size_t size, void * unused)
 {
-   /* Reallocate the array.  We're not performance critical, so reallocing
-      item by item is fine.  */
-   ElfObject * it
-      = realloc (elf_object_array, (elf_object_count + 1) * sizeof (ElfObject));
-   if (it == NULL)
-      return 1;
+    /* Reallocate the array.  We're not performance critical, so reallocing
+       item by item is fine.  */
+    ElfObject * it = realloc (elf_object_array,
+                              (elf_object_count + 1) * sizeof (ElfObject));
+    if (it == NULL)
+        return 1;
 
-   elf_object_array = it;
-   it += elf_object_count++;
+    elf_object_array = it;
+    it += elf_object_count++;
 
-   /* The dlpi_addr field appears to be a misnomer.  It appears to be the
-      difference between the object's address and the mapped address.  */
-   it->delta = info->dlpi_addr;
+    /* The dlpi_addr field appears to be a misnomer.  It appears to be the
+       difference between the object's address and the mapped address.  */
+    it->delta = info->dlpi_addr;
 
-   /* Find the address range...  */
-   size_t min_vaddress = (size_t) -1;
-   size_t max_vaddress = 0;
-   for (int i = 0; i < info->dlpi_phnum; ++i) {
-      const ElfW(Phdr) * header = &info->dlpi_phdr[i];
-      if (header->p_type != PT_LOAD)
-	 continue;
+    /* Find the address range...  */
+    size_t min_vaddress = (size_t) -1;
+    size_t max_vaddress = 0;
+    for (int i = 0; i < info->dlpi_phnum; ++i) {
+        const ElfW(Phdr) * header = &info->dlpi_phdr[i];
+        if (header->p_type != PT_LOAD)
+            continue;
 
-      if (min_vaddress > header->p_vaddr)
-	 min_vaddress = header->p_vaddr;
+        if (min_vaddress > header->p_vaddr)
+            min_vaddress = header->p_vaddr;
 
-      if (max_vaddress < header->p_vaddr + header->p_memsz)
-	 max_vaddress = header->p_vaddr + header->p_memsz;
-   }
+        if (max_vaddress < header->p_vaddr + header->p_memsz)
+            max_vaddress = header->p_vaddr + header->p_memsz;
+    }
 
-   it->address = ((char *) min_vaddress) + it->delta;
-   it->size = max_vaddress - min_vaddress;
+    it->address = ((char *) min_vaddress) + it->delta;
+    it->size = max_vaddress - min_vaddress;
 
-   /* Assume that no name is the main program...  */
-   it->name = info->dlpi_name;
-   it->filename = it->name;
-   if (it->name == NULL || it->name[0] == '\0') {
-      it->name = program_invocation_short_name;
-      it->filename = main_program_path();
-   }
+    /* Assume that no name is the main program...  */
+    it->name = info->dlpi_name;
+    it->filename = it->name;
+    if (it->name == NULL || it->name[0] == '\0') {
+        it->name = program_invocation_short_name;
+        it->filename = main_program_path();
+    }
 
-   it->elf = 0;
-   it->fd = -1;
-   it->symbols_count = 0;
-   it->symbols = NULL;
+    it->elf = 0;
+    it->fd = -1;
+    it->symbols_count = 0;
+    it->symbols = NULL;
 
 #ifdef DEBUG
-   fprintf (stderr, "%s at %p size %u delta %x\n",
-	    it->name, it->address, it->size, it->delta);
+    fprintf (stderr, "%s at %p size %u delta %x\n",
+             it->name, it->address, it->size, it->delta);
 #endif
 
-   return 0;
+    return 0;
 }
 
 /* Comparison function for sorting the array of elf objects.  */
@@ -148,356 +148,399 @@ static int compare_elf_symbol (const void * a, const void * b)
       aa->address < bb->address ? -1 : 1;
 }
 
-/* Try and open the elf object, following .gnu_debuglink if possible.  */
-static void open_elf_object (ElfObject * it)
+
+static Elf_Scn * get_elf_section (Elf * elf, uint32_t type,
+                                  const char * name,
+                                  GElf_Shdr * header)
 {
-   it->elf = NULL;
-
-   it->fd = open (it->filename, O_RDONLY);
-   if (it->fd == -1)
-      return;
-
-   it->elf = elf_begin (it->fd, ELF_C_READ_MMAP, NULL);
-   if (it->elf == NULL)
-      return;
-
-#if 1
-   return;
-#endif
+   Elf_Scn * section = NULL;
 
    size_t shstrndx;		/* Section Header STRings iNDeX.  */
-   if (elf_getshstrndx (it->elf, &shstrndx) < 0)
-      return;
+   if (elf_getshstrndx (elf, &shstrndx) < 0)
+      return NULL;
 
-   /* Now look for PROGBITS section .gnu_debuglink.  */
-   Elf_Scn * section = NULL;
-   while ((section = elf_nextscn (it->elf, section))) {
-      GElf_Shdr  section_head;
-      gelf_getshdr (section, &section_head);
-      if (section_head.sh_type != SHT_PROGBITS)
-	 continue;
+   while ((section = elf_nextscn (elf, section))) {
+      gelf_getshdr (section, header);
+      if (header->sh_type != type)
+          continue;
 
-      const char * name = elf_strptr (it->elf, shstrndx, section_head.sh_name);
-      if (name != NULL && strcmp (name, ".gnu_debuglink") == 0)
+      if (name == NULL)
+          break;
+
+      const char * n = elf_strptr (elf, shstrndx, header->sh_name);
+      if (n != NULL && strcmp (n, name) == 0)
 	 break;
    }
 
-   if (section == NULL)
-      return;
-
-   /* Ok, we have a .gnu_debuglink section.  It starts with a file
-      name.  FIXME: validation and checksum checking not done...  */
-   Elf_Data * data = elf_getdata (section, NULL);
-   if (data == NULL)
-      return;
-
-   /* Now create the debug file name: /usr/lib/debug/ +
-      dirname(it->file) + debuglink */
-   const char * filename_slash = strrchr (it->filename, '/');
-#ifdef DEBUG
-   fprintf (stderr, "Library filename = %s\n", it->filename);
-#endif
-   if (filename_slash == NULL)
-      return;
-
-   char * debug_filename;
-   if (asprintf (&debug_filename, "/usr/lib/debug/%.*s%s",
-		 filename_slash - it->filename + 1, it->filename,
-		 (const char *) data->d_buf) < 0)
-      return;
-
-#ifdef DEBUG
-   fprintf (stderr, "debuglink(%s) = %s\n", it->name, debug_filename);
-#endif
-
-   /* Now try and load the debug info elf object.  */
-   int debug_fd = open (debug_filename, O_RDONLY);
-   free (debug_filename);
-   if (debug_fd < 0) {
-      fprintf (stderr, "open debug info %s for %s failed.\n",
-               debug_filename, it->name);
-      return;
-   }
-
-   Elf * debug_elf = elf_begin (debug_fd, ELF_C_READ_MMAP, NULL);
-   if (debug_elf == NULL) {
-      close (debug_fd);
-      return;
-   }
-
-   /* Update it->delta, just in case elf and debug_elf have different
-      base addresses.  E.g., because of prelinking....  */
-   GElf_Ehdr orig_header;
-   GElf_Ehdr debug_header;
-   it->delta += gelf_getehdr (it->elf, &orig_header)->e_entry
-      -         gelf_getehdr (debug_elf, &debug_header)->e_entry;
-
-   elf_end (it->elf);
-   close (it->fd);
-   it->elf = debug_elf;
-   it->fd = debug_fd;
+   return section;
 }
 
-/* Build the symbol table in an ElfObject.   */
+
+/* Try and open the elf object.  */
+static Elf * open_elf (const char * path, int * fd)
+{
+    *fd = open (path, O_RDONLY);
+    if (*fd == -1) {
+        fprintf (stderr, "Failed to open %s: %s\n", path, strerror (errno));
+        return NULL;
+    }
+
+    Elf * elf = elf_begin (*fd, ELF_C_READ_MMAP, NULL);
+    if (elf == NULL) {
+        close (*fd);
+        *fd = -1;
+    }
+
+    return elf;
+}
+
+
+static void close_elf (Elf * elf, int fd)
+{
+    if (elf != NULL)
+        elf_end (elf);
+
+    if (fd >= 0)
+        close (fd);
+}
+
+
+/* Follow .gnu_debuglink if possible.  */
+static Elf * get_debuglink (ElfObject * it, int * dbgfd)
+{
+    GElf_Shdr temp;
+    Elf_Scn * section = get_elf_section (it->elf, SHT_PROGBITS,
+                                         ".gnu_debuglink", &temp);
+    if (section == NULL)
+        return NULL;
+
+    /* Ok, we have a .gnu_debuglink section.  It starts with a file name.
+       FIXME: validation and checksum checking not done...  */
+    Elf_Data * data = elf_getdata (section, NULL);
+    if (data == NULL)
+        return NULL;
+
+    /* Now create the debug file name: /usr/lib/debug/ +
+       dirname(it->file) + debuglink */
+    const char * filename_slash = strrchr (it->filename, '/');
+#ifdef DEBUG
+    fprintf (stderr, "Library filename = %s\n", it->filename);
+#endif
+    if (filename_slash == NULL)
+        return NULL;
+
+    char * debug_path;
+    if (asprintf (&debug_path, "/usr/lib/debug/%.*s%s",
+                  filename_slash - it->filename + 1, it->filename,
+                  (const char *) data->d_buf) < 0)
+        return NULL;
+
+#ifdef DEBUG
+    fprintf (stderr, "debuglink(%s) = %s\n", it->name, debug_path);
+#endif
+
+    /* Now try and load the debug info elf object.  */
+    Elf * debug_elf = open_elf (debug_path, dbgfd);
+    free (debug_path);
+
+    return debug_elf;
+}
+
+
+/* Update it->delta, just in case elf and debug_elf have different
+ * base addresses.  E.g., because of prelinking....  */
+static void replace_elf (ElfObject * it, Elf * elf, int fd)
+{
+    GElf_Ehdr old_header;
+    GElf_Ehdr new_header;
+    it->delta += gelf_getehdr (it->elf, &old_header)->e_entry
+        -         gelf_getehdr (elf, &new_header)->e_entry;
+    close_elf (it->elf, it->fd);
+    it->elf = elf;
+    it->fd = fd;
+}
+
+
+/* Get an elf object symbol table.  */
+static Elf_Scn * get_symtab (ElfObject * it, GElf_Shdr * header)
+{
+    it->elf = open_elf (it->filename, &it->fd);
+    if (it->elf == NULL) {
+        it->filename = NULL;
+        return NULL;
+    }
+
+    Elf_Scn * section = get_elf_section (it->elf, SHT_SYMTAB, NULL, header);
+    if (section != NULL) {
+//#ifdef DEBUG
+        fprintf (stderr, "%s: SYMTAB\n", it->name);
+//#endif
+        return section;
+    }
+
+    int debug_fd;
+    Elf * debug = get_debuglink (it, &debug_fd);
+
+    if (debug != NULL) {
+        section = get_elf_section (debug, SHT_SYMTAB, NULL, header);
+        if (section != NULL) {
+//#ifdef DEBUG
+            fprintf (stderr, "%s: SYMTAB (debuginfo)\n", it->name);
+//#endif
+            replace_elf (it, debug, debug_fd);
+            return section;
+        }
+    }
+
+    section = get_elf_section (it->elf, SHT_DYNSYM, NULL, header);
+    if (section != NULL)
+//#ifdef DEBUG
+        fprintf (stderr, "%s: DYNSYM\n", it->name);
+//#endif
+
+    if (section == NULL && debug != NULL) {
+        section = get_elf_section (debug, SHT_DYNSYM, NULL, header);
+        if (section != NULL) {
+//#ifdef DEBUG
+            fprintf (stderr, "%s: DYNSYM (debuginfo)\n", it->name);
+//#endif
+            replace_elf (it, debug, debug_fd);
+            return section;
+        }
+    }
+
+    close_elf (debug, debug_fd);
+    return section;
+}
+
+
 static void fill_in_elf_object (ElfObject * it)
 {
-   /* If we're already filled in, or we've already failed, do nothing.  */
-   if (it->fd != -1 || it->filename == NULL)
-      return;
+    /* If we're already filled in, or we've already failed, do nothing.  */
+    if (it->fd != -1 || it->filename == NULL)
+        return;
 
 #ifdef DEBUG
-   fprintf (stderr, "Loading elf object %s\n", it->name);
+    fprintf (stderr, "Loading elf object %s\n", it->name);
 #endif
 
-   open_elf_object (it);
-   if (it->elf == NULL)
-      goto failed;
+    GElf_Shdr section_header;
+    Elf_Scn * section = get_symtab (it, &section_header);
+    if (section == NULL) {
+        fprintf (stderr, "No smbol data in %s\n", it->name);
+        goto failed;
+    }
 
-   size_t shstrndx;		/* Section Header STRings iNDeX.  */
-   if (elf_getshstrndx (it->elf, &shstrndx) < 0)
-      return;
+    /* Get the symbol table data.  */
+    Elf_Data * symbol_data = elf_getdata (section, NULL);
+    if (symbol_data == NULL) {
+        fprintf (stderr, "No section data in %s\n", it->name);
+        goto failed;
+    }
 
+    /* Number of symbols.  We won't actually be interested in them all, but it's
+     * not going to be excessively large.  */
+    size_t symbol_count = section_header.sh_size / section_header.sh_entsize;
+    if (symbol_count <= 0) {
+        fprintf (stderr, "No symbols in %s\n", it->name);
+        goto failed;
+    }
 
-   /* Look for a symtab.  */
-   Elf_Scn *  section = NULL;
-   GElf_Shdr  section_header;
-   while ((section = elf_nextscn (it->elf, section))) {
-      gelf_getshdr (section, &section_header);
-#ifdef DEBUG
-      fprintf (stderr, "sh-type = %u\n", section_header.sh_type);
-      const char * name = elf_strptr (it->elf, shstrndx, section_header.sh_name);
-      if (name != NULL)
-          fprintf (stderr, "section name = %s\n", name);
-#endif
-      if (section_header.sh_type == SHT_SYMTAB)
-	 break;
-   }
-   if (section == NULL)
-      /* If no symtab, try for dynsym.  */
-      while ((section = elf_nextscn (it->elf, section))) {
-	 gelf_getshdr (section, &section_header);
-	 if (section_header.sh_type == SHT_DYNSYM)
-	    break;
-      }
-   if (section == NULL) {
-      fprintf (stderr, "No SYMTAB or DYNSYM in %s\n", it->filename);
-      goto failed;
-   }
+    /* We count the exact number of symbols we're interested in; saves us 4k
+     * entries on libc.  */
+    size_t wanted = 0;
+    for (size_t i = 0; i != symbol_count; ++i) {
+        GElf_Sym symbol;
+        gelf_getsym (symbol_data, i, &symbol);
+        /* We're only interested in symbols that are defined functions.  Ignore
+         * others.  */
+        if ((GELF_ST_TYPE (symbol.st_info) == STT_FUNC ||
+             GELF_ST_TYPE (symbol.st_info) == STT_OBJECT)
+             && symbol.st_value != 0)
+            ++wanted;
+    }
 
-   /* Get the symbol table data.  */
-   Elf_Data * symbol_data = elf_getdata (section, NULL);
-   if (symbol_data == NULL) {
-      fprintf (stderr, "No section data in %s\n", it->name);
-      goto failed;
-   }
+    /* Now build the symbol array.  */
+    it->symbols = malloc (wanted * sizeof (ElfSymbol));
+    if (it->symbols == NULL) {
+        fprintf (stderr, "Malloc symbol array failed in %s\n", it->name);
+        goto failed;
+    }
+    it->symbols_count = 0;
 
-   /* Number of symbols.  We won't actually be interested in them all, but
-      it's not going to be excessively large.  */
-   size_t symbol_count = section_header.sh_size / section_header.sh_entsize;
-   if (symbol_count <= 0)
-      goto failed;
+    for (size_t i = 0; i != symbol_count; ++i) {
+        GElf_Sym symbol;
+        gelf_getsym (symbol_data, i, &symbol);
+        ElfSymbol * s = &it->symbols[it->symbols_count];
 
-   /* We count the exact number of symbols we're interested in; saves us 4k
-      entries on libc.  */
-   size_t wanted = 0;
-   for (size_t i = 0; i != symbol_count; ++i) {
-      GElf_Sym symbol;
-      gelf_getsym (symbol_data, i, &symbol);
-      /* We're only interested in symbols that are defined functions.
-	 Decrement symbol_count for the others.  */
-      if ((GELF_ST_TYPE (symbol.st_info) == STT_FUNC ||
-	   GELF_ST_TYPE (symbol.st_info) == STT_OBJECT)
-	  && symbol.st_shndx != SHN_UNDEF)
-	 ++wanted;
-   }
+        /* We're only interested in symbols that are defined functions.  It
+         * appears that some real functions get marked as undefined!  So test
+         * for symbol value != 0 instead.  */
+        if ((GELF_ST_TYPE (symbol.st_info) != STT_FUNC &&
+             GELF_ST_TYPE (symbol.st_info) != STT_OBJECT)             
+            || symbol.st_value == 0)
+            continue;
 
-   /* Now build the symbol array.  */
-   it->symbols = malloc (wanted * sizeof (ElfSymbol));
-   it->symbols_count = 0;
+        /* st_value is 64 bits in the gelf stuff, so need to cast to
+           avoid warnings.  */
+        s->address = ((char *) (size_t) symbol.st_value) + it->delta;
+        s->size = symbol.st_size;
+        if (s->size == 0)
+            s->size = 16;
+        s->name = elf_strptr (it->elf,
+                              section_header.sh_link,
+                              symbol.st_name);
 
-   for (size_t i = 0; i != symbol_count; ++i) {
-      GElf_Sym symbol;
-      gelf_getsym (symbol_data, i, &symbol);
-      ElfSymbol * s = &it->symbols[it->symbols_count];
+        ++it->symbols_count;
+    }
 
-      /* We're only interested in symbols that are defined functions.  */
-      if ((GELF_ST_TYPE (symbol.st_info) != STT_FUNC &&
-	   GELF_ST_TYPE (symbol.st_info) != STT_OBJECT)
-	  || symbol.st_shndx == SHN_UNDEF)
-	 continue;
+    assert (it->symbols_count == wanted);
 
-      /* st_value is 64 bits in the gelf stuff, so need to cast to
-	 avoid warnings.  */
-      s->address = ((char *) (size_t) symbol.st_value) + it->delta;
-      s->size = symbol.st_size;
-      s->name = elf_strptr (it->elf,
-			    section_header.sh_link,
-			    symbol.st_name);
-
-      ++it->symbols_count;
-   }
-
-   assert (it->symbols_count == wanted);
-
-   /* Sort the symbols by address so we can do a binary search later.  */
-   qsort (it->symbols, it->symbols_count, sizeof (ElfSymbol),
-	  compare_elf_symbol);
+    /* Sort the symbols by address so we can do a binary search later.  */
+    qsort (it->symbols, it->symbols_count, sizeof (ElfSymbol),
+           compare_elf_symbol);
 
 #ifdef DEBUG
-   fprintf (stderr, "Grokked %u symbols out of %u\n",
-	    it->symbols_count, symbol_count);
+    fprintf (stderr, "Grokked %u symbols out of %u for %s\n",
+             it->symbols_count, symbol_count, it->name);
 /*    for (size_t i = 0; i != it->symbols_count; ++i) */
 /*       fprintf (stderr, "\t%p %5i\t%s\n", */
 /* 	       it->symbols[i].address, */
 /* 	       it->symbols[i].size, */
 /* 	       it->symbols[i].name); */
-
-   fprintf (stderr, "Loading elf object %s success\n", it->name);
 #endif
+    return;
 
-   return;
-
- failed:
-//#ifdef DEBUG
-   fprintf (stderr, "Loading elf object %s FAILED\n", it->name);
-//#endif
-   if (it->elf) {
-      elf_end (it->elf);
-      it->elf = NULL;
-   }
-   if (it->fd >= 0) {
-      close (it->fd);
-      it->fd = -1;
-   }
-   it->filename = NULL;
+failed:
+    close_elf (it->elf, it->fd);
+    it->elf = NULL;
+    it->fd = -1;
+    it->filename = NULL;
 }
+
 
 /* Destroy the symbol table.  */
 void reflect_symtab_destroy (void)
 {
-   /* Free each item in the array.  */
-   for (unsigned int i = 0; i != elf_object_count; ++i) {
-      ElfObject * o = &elf_object_array[i];
+    /* Free each item in the array.  */
+    for (unsigned int i = 0; i != elf_object_count; ++i) {
+        ElfObject * o = &elf_object_array[i];
 
-      if (o->elf)
-	 elf_end (o->elf);
+        free (o->symbols);
+        close_elf (o->elf, o->fd);
+    }
 
-      if (o->symbols)
-	 free (o->symbols);
-
-      if (o->fd >= 0)
-	 close (o->fd);
-   }
-
-   /* And free the array storage.  */
-   free (elf_object_array);
-   elf_object_array = NULL;
-   elf_object_count = 0;
+    /* And free the array storage.  */
+    free (elf_object_array);
+    elf_object_array = NULL;
+    elf_object_count = 0;
 }
 
+
 /* Lookup object symbol and offset for an address.  object and/or
-   symbol may be set to NULL.  */
+ * symbol may be set to NULL.  */
 void reflect_symtab_lookup (const char ** object,
 			    const char ** symbol,
 			    size_t *      offset,
 			    const void *  address)
 {
-   *object = NULL;
-   *symbol = NULL;
-   *offset = (size_t) address;
+    *object = NULL;
+    *symbol = NULL;
+    *offset = (size_t) address;
 
-   if (elf_object_count == 0) {
+    if (elf_object_count == 0) {
 #ifdef DEBUG
-      fprintf (stderr, "Lookup : no objects\n");
+        fprintf (stderr, "Lookup : no objects\n");
 #endif
-      return;			/* No elf objects...  */
-   }
+        return;			/* No elf objects...  */
+    }
 
-   /* Binary search for the object.  */
-   ElfObject * o = elf_object_array;
-   size_t range = elf_object_count;
-   while (range > 1)
-      if (o[range / 2].address <= address) {
-	 o += range / 2;
-	 range -= range / 2;
-      }
-      else
-	 range /= 2;
+    /* Binary search for the object.  */
+    ElfObject * o = elf_object_array;
+    size_t range = elf_object_count;
+    while (range > 1)
+        if (o[range / 2].address <= address) {
+            o += range / 2;
+            range -= range / 2;
+        }
+        else
+            range /= 2;
 
-   if ((size_t) (((char *) address) - ((char *) o->address)) > o->size) {
+    if ((size_t) (((char *) address) - ((char *) o->address)) > o->size) {
 #ifdef DEBUG
-      fprintf (stderr, "Lookup : object not found\n");
+        fprintf (stderr, "Lookup : object not found\n");
 #endif
-      return;			/* Not found.  */
-   }
+        return;			/* Not found.  */
+    }
 
-   fill_in_elf_object (o);
+    fill_in_elf_object (o);
 
-   *object = o->name;
-   *offset = ((char *) address) - ((char *) o->address);
+    *object = o->name;
+    *offset = ((char *) address) - ((char *) o->address);
 
-   /* Now try for the symbol.  */
-   if (o->symbols_count == 0) {
+    /* Now try for the symbol.  */
+    if (o->symbols_count == 0) {
 #ifdef DEBUG
-      fprintf (stderr, "Lookup : no symbols\n");
+        fprintf (stderr, "Lookup : no symbols\n");
 #endif
-      return;
-   }
+        return;
+    }
 
-   ElfSymbol * s = o->symbols;
-   range = o->symbols_count;
-   while (range > 1)
-      if (s[range / 2].address <= address) {
-	 s += range / 2;
-	 range -= range / 2;
-      }
-      else
-	 range /= 2;
+    ElfSymbol * s = o->symbols;
+    range = o->symbols_count;
+    while (range > 1)
+        if (s[range / 2].address <= address) {
+            s += range / 2;
+            range -= range / 2;
+        }
+        else
+            range /= 2;
 
-   if ((size_t) (((char *) address) - ((char *) s->address)) > s->size) {
+    if ((size_t) (((char *) address) - ((char *) s->address)) > s->size) {
 #ifdef DEBUG
-      fprintf (stderr, "%s %p %i\n", s->name, s->address, s->size);
-      fprintf (stderr, "Lookup : out of range\n");
+        fprintf (stderr, "%p: %s %p %i\n", address, s->name, s->address, s->size);
+//        fprintf (stderr, "Lookup : out of range\n");
 #endif
-      return;
-   }
+        return;
+    }
 
-   *symbol = s->name;
-   *offset = ((char *) address) - ((char *) s->address);
+    *symbol = s->name;
+    *offset = ((char *) address) - ((char *) s->address);
 }
+
 
 char * reflect_symtab_format (const void * const * addresses,
 			      size_t               count,
 			      int                  verbose)
 {
-   char * result;
-   size_t result_size;
+    char * result;
+    size_t result_size;
 
-   FILE * f = open_memstream (&result, &result_size);
-   if (f == NULL)
-      return NULL;
+    FILE * f = open_memstream (&result, &result_size);
+    if (f == NULL)
+        return NULL;
 
-   for (size_t i = 0; i != count && addresses[i] != NULL; ++i) {
-      const char * object;
-      const char * symbol;
-      size_t       offset;
+    for (size_t i = 0; i != count && addresses[i] != NULL; ++i) {
+        const char * object;
+        const char * symbol;
+        size_t       offset;
 
-      reflect_symtab_lookup (&object, &symbol, &offset, addresses[i]);
+        reflect_symtab_lookup (&object, &symbol, &offset, addresses[i]);
 
-      if (verbose && symbol)
-	 fprintf (f, "\t%s+%i\t(%s)\n", symbol, offset, object);
-      else if (verbose && object)
-	 fprintf (f, "\t%s+%#x\n", object, offset);
-      else if (symbol)
-	 fprintf (f, "\t%s\t(%s)\n", symbol, object);
-      else if (object)
-	 fprintf (f, "\t%s\n", object);
-      else
-	 fprintf (f, "\t%p\n", (void *) offset);
-   }
+        if (verbose && symbol)
+            fprintf (f, "\t%s+%i\t(%s)\n", symbol, offset, object);
+        else if (verbose && object)
+            fprintf (f, "\t%s+%#x\n", object, offset);
+        else if (symbol)
+            fprintf (f, "\t%s\t(%s)\n", symbol, object);
+        else if (object)
+            fprintf (f, "\t%s\n", object);
+        else
+            fprintf (f, "\t%p\n", (void *) offset);
+    }
 
-   if (fclose (f) != 0)
-      return NULL;
+    if (fclose (f) != 0)
+        return NULL;
 
-   return result;
+    return result;
 }
