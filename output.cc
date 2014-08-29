@@ -65,7 +65,6 @@ struct scg_function_record {
     record_counts caller_counts;
     record_counts callee_counts;
 
-    typedef std::vector <int> int_vector;
     // The number of times that we have occured at least once on the stack.
     int            call_count;
     // The number of times that we have occured as the innermost element on the
@@ -73,7 +72,7 @@ struct scg_function_record {
     int            terminal_count;
     // Call_counts[i] is number of samples with the function occuring i+1
     // times in the stack.
-    int_vector     call_count_breakdown;
+    std::vector <int> call_count_breakdown;
 
     // Print to out_file.
     void output (FILE *        out_file,
@@ -87,12 +86,10 @@ struct scg_database {
         { }
 
     // Function records indexed by base address.
-    typedef std::map <uintptr_t, scg_function_record> record_map;
-    record_map  records;
+    std::map <uintptr_t, scg_function_record> records;
 
     // Function records indexed by return address.
-    typedef std::map <uintptr_t, scg_function_record *> recordp_map;
-    recordp_map canonicalisers;
+    std::map <uintptr_t, scg_function_record *> canonicalisers;
 
     // Convert a return address to a record.
     scg_function_record & address_to_record (uintptr_t address);
@@ -117,7 +114,7 @@ struct scg_database {
 
 scg_function_record & scg_database::address_to_record (uintptr_t address)
 {
-    recordp_map::iterator i = canonicalisers.find (address);
+    auto i = canonicalisers.find (address);
     if (i != canonicalisers.end())
         return *i->second;
 
@@ -198,8 +195,8 @@ void scg_database::build_from (scg_node_t * volatile * hash_table,
 
 void scg_database::output (FILE * out_file) const
 {
-    typedef std::multimap <int, const scg_function_record *> sorted_t;
-    sorted_t sorted;
+    std::multimap <int, const scg_function_record *, std::greater<int> >
+        sorted;
 
     for (auto & i : records)
         sorted.insert (std::make_pair (i.second.call_count, &i.second));
@@ -207,9 +204,8 @@ void scg_database::output (FILE * out_file) const
     fprintf (out_file, "Profile for %s with %lu samples.\n",
              program_invocation_short_name, total_samples);
 
-    for (sorted_t::reverse_iterator i = sorted.rbegin();
-         i != sorted.rend(); ++i)
-        i->second->output (out_file, total_samples);
+    for (const auto & i : sorted)
+        i.second->output (out_file, total_samples);
 }
 
 typedef std::multimap <int, scg_function_record *> sorted_counts;
@@ -254,10 +250,8 @@ void scg_function_record::output (FILE *        out_file,
     sorted.clear();
     scg_map_switcheroo (sorted, callee_counts);
 
-    for (sorted_counts::reverse_iterator i = sorted.rbegin();
-         i != sorted.rend(); ++i) {
+    for (auto i = sorted.rbegin(); i != sorted.rend(); ++i)
         fprintf (out_file, "\t%i\t%s\n", i->first, i->second->name.c_str());
-    }
 }
 
 void scg_output_profile()
