@@ -7,8 +7,8 @@ GCC = gcc
 CC = $(GCC)
 CXX = g++
 LD = $(GCC)
-CFLAGS = -O2 -Wall -Werror -g3 -D_GNU_SOURCE -std=gnu99 
-CXXFLAGS = -O2 -Wall -Werror -g3 -D_GNU_SOURCE
+CFLAGS = -O2 -Wall -Werror -g3 -D_GNU_SOURCE -std=gnu99
+CXXFLAGS = -O2 -Wall -Werror -g3 -D_GNU_SOURCE -std=c++11
 
 # Extension for shared libaries.  HPUX changes this to sl, 'doze to dll.
 SO = so

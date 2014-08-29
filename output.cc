@@ -171,13 +171,12 @@ void scg_database::process_node (const scg_node_t & node,
     caller->terminal_count += counter;
 
     // Now increase all the record_counts.
-    for (record_counts::iterator i = occur_counts.begin();
-         i != occur_counts.end(); ++i) {
-        i->first->call_count += counter;
-        if (i->first->call_count_breakdown.size() < i->second) {
-            i->first->call_count_breakdown.resize (i->second);
-        }
-        i->first->call_count_breakdown[i->second - 1] += counter;
+    for (auto & i : occur_counts) {
+        i.first->call_count += counter;
+        if (i.first->call_count_breakdown.size() < i.second)
+            i.first->call_count_breakdown.resize (i.second);
+
+        i.first->call_count_breakdown[i.second - 1] += counter;
     }
 }
 
@@ -202,31 +201,23 @@ void scg_database::output (FILE * out_file) const
     typedef std::multimap <int, const scg_function_record *> sorted_t;
     sorted_t sorted;
 
-    for (record_map::const_iterator i = records.begin();
-         i != records.end(); ++i) {
-        sorted.insert (std::make_pair (i->second.call_count, &i->second));
-    }
+    for (auto & i : records)
+        sorted.insert (std::make_pair (i.second.call_count, &i.second));
 
     fprintf (out_file, "Profile for %s with %lu samples.\n",
              program_invocation_short_name, total_samples);
 
-//    extern int bad_frame_bail;
-//    fprintf (out_file, "bad_frame_bail = %u\n", bad_frame_bail);
-
     for (sorted_t::reverse_iterator i = sorted.rbegin();
-         i != sorted.rend(); ++i) {
+         i != sorted.rend(); ++i)
         i->second->output (out_file, total_samples);
-    }
 }
 
 typedef std::multimap <int, scg_function_record *> sorted_counts;
 static void scg_map_switcheroo (sorted_counts &       output,
                                 const record_counts & input)
 {
-    for (record_counts::const_iterator i = input.begin();
-         i != input.end(); ++i) {
-        output.insert (std::make_pair (i->second, i->first));
-    }
+    for (const auto & i : input)
+        output.insert (std::make_pair (i.second, i.first));
 }
 
 void scg_function_record::output (FILE *        out_file,
@@ -238,9 +229,8 @@ void scg_function_record::output (FILE *        out_file,
     sorted_counts sorted;
     scg_map_switcheroo (sorted, caller_counts);
 
-    for (sorted_counts::iterator i = sorted.begin(); i != sorted.end(); ++i) {
-        fprintf (out_file, "\t%i\t%s\n", i->first, i->second->name.c_str());
-    }
+    for (const auto & i : sorted)
+        fprintf (out_file, "\t%i\t%s\n", i.first, i.second->name.c_str());
 
     /* Output the function name with the call count(s). */
     if (call_count_breakdown.size() <= 1) {
@@ -252,10 +242,9 @@ void scg_function_record::output (FILE *        out_file,
     else {
         fprintf (out_file, "+%s\t%i/%i (",
                  name.c_str(), terminal_count, call_count);
-        for (int_vector::const_iterator i = call_count_breakdown.begin();
-             i != call_count_breakdown.end(); ++i) {
-            fprintf (out_file, " %i", *i);
-        }
+        for (auto count : call_count_breakdown)
+            fprintf (out_file, " %i", count);
+
         fprintf (out_file, " ) (%.2f%%/%.2f%%)\n",
                  terminal_count * 1e2 / total_samples,
                  call_count * 1e2 / total_samples);
