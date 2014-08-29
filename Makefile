@@ -1,20 +1,17 @@
 
 include Rules.mk
 
-CFLAGS += -Imtrace -fasynchronous-unwind-tables
-CXXFLAGS += -Imtrace -fasynchronous-unwind-tables
+CFLAGS += -Imtrace -fomit-frame-pointer
+CXXFLAGS += -Imtrace -fomit-frame-pointer
 LD = g++
 
 all: libscg.so scgtest
 
-libscg.so : alloc$(LO) node$(LO) output$(LO) pthread$(LO)
-libscg.so :  mtrace/symboltable$(LO)
-#libscg.so : alloc$(LO) node$(LO) output$(LO) symboltable$(LO)
-libscg.so : automatic$(LO) version.ld -lunwind -lunwind-x86 -lelf -ldl
+libscg.so: alloc$(LO) node$(LO) output$(LO) pthread$(LO)
+libscg.so: mtrace/symboltable$(LO)
+libscg.so: automatic$(LO) version.ld -lunwind -lunwind-x86_64 -lelf -ldl
 
-#scgtest: libscgtestfuncs.so libscg.so
-scgtest: scgtestfuncs.o alloc.o node.o output.o mtrace/symboltable.o \
-	-lelf -lunwind -lunwind-x86
+scgtest: libscgtestfuncs.so libscg.so
 
 libscgtestfuncs.so: scgtestfuncs$(LO)
 scgtestfuncs-pic.o scgtestfuncs.o: CFLAGS+=-fno-inline

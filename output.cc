@@ -290,10 +290,11 @@ void scg_output_profile()
             // Replace the '%' with the pid.
             size_t namelen = strlen (name);
             char name2 [namelen + 32];
-            sprintf (name2, "%*s%i%s", ppos - name, name, getpid(), ppos + 1);
+            sprintf (name2, "%*s%i%s",
+                     (int) (ppos - name), name, getpid(), ppos + 1);
             out_file = fopen (name2, "w");
         }
-        else {      
+        else {
             out_file = fopen (name, "w");
         }
     }

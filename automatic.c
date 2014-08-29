@@ -22,17 +22,3 @@ void scg_auto_stop (void)
 {
    scg_output_profile();
 }
-
-#include <ucontext.h>
-
-/* Provide our own memcpy; the libc one doesn't set up a stack frame.  */
-void * memcpy (void * __restrict dest, const void * __restrict src, size_t n)
-{
-    char * d = dest;
-    const char * s = src;
-    while (n) {
-        *d++ = *s++;
-        --n;
-    }
-    return dest;
-}

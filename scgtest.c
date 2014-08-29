@@ -8,11 +8,11 @@ int fib43();
 
 int main()
 {
-   scg_initialize();
+    scg_initialize();
 
     printf ("%i\n", fib43());
 
-   scg_output_profile();
+    scg_output_profile();
 
     return 0;
 }
