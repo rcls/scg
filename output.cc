@@ -48,20 +48,19 @@ typedef std::map <scg_function_record *, size_t> record_counts;
 
 struct scg_function_record {
     scg_function_record() :
-        address (NULL),
+        address (0),
         call_count (0),
         terminal_count (0)
         { }
 
-    scg_function_record (const scg_string & n,
-                         scg_address_t      a) :
+    scg_function_record (const scg_string & n, uintptr_t a) :
         name (n),
         address (a),
         call_count (0)
         { }
 
-    scg_string    name;
-    scg_address_t address;
+    scg_string name;
+    uintptr_t  address;
 
     record_counts caller_counts;
     record_counts callee_counts;
@@ -83,20 +82,20 @@ struct scg_function_record {
 
 struct scg_database {
     scg_database() :
-        spontaneous ("<spontaneous>", NULL),
+        spontaneous ("<spontaneous>", 0),
         total_samples (0)
         { }
 
     // Function records indexed by base address.
-    typedef std::map <scg_address_t, scg_function_record> record_map;
+    typedef std::map <uintptr_t, scg_function_record> record_map;
     record_map  records;
 
     // Function records indexed by return address.
-    typedef std::map <scg_address_t, scg_function_record *> recordp_map;
+    typedef std::map <uintptr_t, scg_function_record *> recordp_map;
     recordp_map canonicalisers;
 
     // Convert a return address to a record.
-    scg_function_record & address_to_record (scg_address_t address);
+    scg_function_record & address_to_record (uintptr_t address);
 
     // Add node into database.
     void process_node (const scg_node_t & node,
@@ -116,7 +115,7 @@ struct scg_database {
     void output (FILE * out_file) const;
 };
 
-scg_function_record & scg_database::address_to_record (scg_address_t address)
+scg_function_record & scg_database::address_to_record (uintptr_t address)
 {
     recordp_map::iterator i = canonicalisers.find (address);
     if (i != canonicalisers.end())
@@ -127,20 +126,20 @@ scg_function_record & scg_database::address_to_record (scg_address_t address)
     size_t       offset;
     char         fake_name[20];
 
-    reflect_symtab_lookup (&object, &name, &offset, address);
+    reflect_symtab_lookup (&object, &name, &offset, (const void *) address);
 
     if (name == NULL) {
         // The address was not found, so we fake it.
-        sprintf (fake_name, "%p", address);
+        sprintf (fake_name, "%#tx", address);
         name = fake_name;
         offset = 0;
     }
 
-    address = (char *) address - offset;	// Base address.
+    address = address - offset;         // Base address.
 
     scg_function_record & result = records[address];
 
-    if (result.address == NULL) {
+    if (result.address == 0) {
         /* This is a new record; initialise it. */
         result.address = address;
         result.name = name;

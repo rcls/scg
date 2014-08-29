@@ -28,7 +28,7 @@ static inline int check (int s, const char * w)
 
 
 static scg_node_t * scg_put_node (scg_node_t * current,
-                                  scg_address_t address,
+                                  uintptr_t address,
                                   scg_node_t ** restrict new_node)
 {
     /* Generate hash key. */
@@ -58,7 +58,7 @@ static scg_node_t * scg_put_node (scg_node_t * current,
         if (*new_node == NULL)
             *new_node = scg_allocate_node();
 
-        (*new_node)->address = (scg_address_t) address;
+        (*new_node)->address = address;
         (*new_node)->next = current;
         (*new_node)->counter = 0;
 
@@ -91,7 +91,7 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
         unw_word_t ip = 0;
         if (unw_get_reg (&cursor, UNW_TDEP_IP, &ip) < 0)
             break;
-        node = scg_put_node (node, (scg_address_t) ip, &new_node);
+        node = scg_put_node (node, ip, &new_node);
     }
     while (unw_step (&cursor) > 0);
 

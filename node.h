@@ -8,23 +8,24 @@
 #ifndef SCG_NODE_H_
 #define SCG_NODE_H_
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef const void * scg_address_t;
-
 typedef struct scg_node_t {
-   scg_address_t       address;   /* Return address from stack frame. */
-   struct scg_node_t * next;      /* Next on stack frame. */
+    uintptr_t           address;        /* Return address from stack frame. */
+    struct scg_node_t * next;           /* Next on stack frame. */
 
-   /* We use non-locking operations to modify counter; hence it is volatile. */
-   volatile unsigned long       counter;   /* Number of hits. */
+    /* We use non-locking operations to modify counter; hence it is volatile. */
+    volatile unsigned long counter;
 
-   /* Link pointer for hash table.  It is volatile because we use non-locking
-    * operations to extend that hash table.  */
-   struct scg_node_t * volatile hash_link;
+    /* Link pointer for hash table.  It is volatile because we use non-locking
+     * operations to extend that hash table.  */
+    struct scg_node_t * volatile hash_link;
 } scg_node_t;
+
 
 /* Hash table has 1048676 entries... */
 #define SCG_NODE_HASH_ORDER 20
