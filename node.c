@@ -1,3 +1,4 @@
+#define UNW_LOCAL_ONLY
 
 #include <libunwind.h>
 #include <limits.h>
@@ -12,7 +13,9 @@
 #include "scg.h"
 
 //#define GOLDEN_PRIME 2663455159ul
-#define GOLDEN_PRIME 11400714819323198549ul
+//#define GOLDEN_PRIME 11400714819323198549ul
+static const unsigned long GOLDEN_PRIME = sizeof(unsigned long) == 4
+    ? 2663455159ul : 11400714819323198549ul;
 
 scg_node_t * volatile scg_node_hash[SCG_NODE_HASH_SIZE];
 
