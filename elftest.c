@@ -29,8 +29,8 @@ static void process (const char * filename)
     exit (1);
   }
 
-  unsigned section_count;		/* Number of sections.  */
-  if (elf_getshnum (elf, &section_count) < 0) {
+  size_t section_count;		/* Number of sections.  */
+  if (elf_getshdrnum (elf, &section_count) < 0) {
     fprintf (stderr, "Cannot get number of sections: %s", elf_errmsg (-1));
     exit (1);
   }
@@ -67,14 +67,14 @@ static void process (const char * filename)
 
   /* Get the section header string table index.  */
   size_t shstrndx;		/* Section Header STRings iNDeX.  */
-  if (elf_getshstrndx (elf, &shstrndx) < 0) {
+  if (elf_getshdrstrndx (elf, &shstrndx) < 0) {
     fprintf (stderr, "Cannot get string table section index.\n");
     exit (EXIT_FAILURE);
   }
 
   size_t num_syms = shdr->sh_size / shdr->sh_entsize;
 
-  printf ("Symbol table %s has %u entries.\n",
+  printf ("Symbol table %s has %zu entries.\n",
 	  elf_strptr (elf, shstrndx, shdr->sh_name), num_syms);
 
   GElf_Shdr glink;		/* Temporary section header use for links.  */
@@ -84,7 +84,7 @@ static void process (const char * filename)
 	  (unsigned) shdr->sh_link,
 	  elf_strptr (elf, shstrndx,
 		      gelf_getshdr (elf_getscn (elf, shdr->sh_link),
-				    &glink)->sh_name));
+                                    &glink)->sh_name));
 
   for (size_t i = 0; i != num_syms; ++i) {
       GElf_Sym sym_mem;
@@ -92,11 +92,11 @@ static void process (const char * filename)
 
       if (GELF_ST_TYPE (sym->st_info) == STT_FUNC &&
 	  sym->st_shndx != SHN_UNDEF)
-	printf ("%6i: 0x%08llx %5lld\t%s \t%s\n",
-		i, sym->st_value, sym->st_size,
+	printf ("%6zi: 0x%08llx %5lld\t%s \t%s\n",
+		i, (long long) sym->st_value, (long long) sym->st_size,
 		elf_strptr (elf, shstrndx,
 			    gelf_getshdr (elf_getscn (elf, sym->st_shndx),
-					  &glink)->sh_name),
+                                          &glink)->sh_name),
 		elf_strptr (elf, shdr->sh_link, sym->st_name));
   }
 
@@ -113,13 +113,13 @@ static void process (const char * filename)
 
 static int do_a_phdr (struct dl_phdr_info * phdr, size_t size, void * ignored)
 {
-  printf ("%3i %08x %s\n",
+  printf ("%3i %08zx %s\n",
 	  phdr->dlpi_phnum,
 	  phdr->dlpi_addr,	/* Add to file addresses to get mapped?  */
 	  phdr->dlpi_name);
   for (int i = 0; i != phdr->dlpi_phnum; ++i) {
     const ElfW(Phdr) * seg = &phdr->dlpi_phdr[i];
-    printf ("    %8x %6x %08x %08x %5i %5i %3i %3i\n",
+    printf ("    %8x %6zx %08zx %08zx %5zi %5zi %3i %3zi\n",
 	    seg->p_type,
 	    seg->p_offset,
 	    seg->p_vaddr,
@@ -171,8 +171,8 @@ int main (int argc, char ** argv)
     if (symbol == NULL)
       symbol = "(none)";
 
-    printf ("%p : %s\t%s\t%u\n", address, object, symbol, offset);
-    
+    printf ("%p : %s\t%s\t%zu\n", address, object, symbol, offset);
+
   }
 
   reflect_symtab_destroy();

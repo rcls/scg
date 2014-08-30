@@ -64,14 +64,14 @@ void * __libc_valloc (size_t size);
 
 /******************************************************************************
  * Locking functions
- * 
+ *
  * enter() locks, leave() unlocks.  These give us thread protection, and also
  * enable us to detect recursive calls due to memory usage with the memory
  * tracer.  Also print the report if needed.
  *****************************************************************************/
 static inline void enter (void)
-{						
-   pthread_mutex_lock (&mutex);			
+{
+   pthread_mutex_lock (&mutex);
    ++depth;
    if (need_report)
       print_report();
@@ -355,7 +355,7 @@ void * memalign (size_t boundary, size_t size)
 
 /******************************************************************************
  * Aliases
- * 
+ *
  * We map C++ operator new / delete to malloc and free.  Not quite perfect, but
  * good enough in real life.  Also, instead of worrying about whether size_t is
  * unsigned int or unsigned long, we take both.
@@ -498,10 +498,8 @@ void print_report (void)
       report_array_end = p + 1;
 
       /*** Now sort by number of bytes.  ***/
-      qsort (report_array,
-             report_array_end - report_array,
-             sizeof (ReportItem),
-             compare_by_bytes);
+      qsort (report_array, report_array_end - report_array,
+             sizeof (ReportItem), compare_by_bytes);
    }
 
    /*** Print the report.  ***/
@@ -516,12 +514,12 @@ void print_report (void)
    if (output_file == NULL)
       goto cleanup;
 
-   fprintf (output_file, "Outanding bytes: %i (%+i)\n", global_bytes, total);
+   fprintf (output_file, "Outanding bytes: %zi (%+zi)\n", global_bytes, total);
    for (ReportItem * p = report_array; p != report_array_end; ++p) {
       /* There may be some items with 0 bytes, due to collapsing items with
 	 identical strings.  Make sure we skip these.  */
       if (p->bytes != 0) {
-         fprintf (output_file, "%+i\n", p->bytes);
+         fprintf (output_file, "%+zi\n", p->bytes);
          fputs (p->string, output_file);
       }
    }

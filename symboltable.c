@@ -162,7 +162,7 @@ static Elf_Scn * get_elf_section (Elf * elf, uint32_t type,
    Elf_Scn * section = NULL;
 
    size_t shstrndx;		/* Section Header STRings iNDeX.  */
-   if (elf_getshstrndx (elf, &shstrndx) < 0)
+   if (elf_getshdrstrndx (elf, &shstrndx) < 0)
       return NULL;
 
    while ((section = elf_nextscn (elf, section))) {
@@ -237,7 +237,7 @@ static Elf * get_debuglink (ElfObject * it, int * dbgfd)
 
     char * debug_path;
     if (asprintf (&debug_path, "/usr/lib/debug/%.*s%s",
-                  filename_slash - it->filename + 1, it->filename,
+                  (int) (filename_slash - it->filename + 1), it->filename,
                   (const char *) data->d_buf) < 0)
         return NULL;
 
@@ -383,19 +383,17 @@ static void fill_in_elf_object (ElfObject * it)
          * appears that some real functions get marked as undefined!  So test
          * for symbol value != 0 instead.  */
         if ((GELF_ST_TYPE (symbol.st_info) != STT_FUNC &&
-             GELF_ST_TYPE (symbol.st_info) != STT_OBJECT)             
+             GELF_ST_TYPE (symbol.st_info) != STT_OBJECT)
             || symbol.st_value == 0)
             continue;
 
         /* st_value is 64 bits in the gelf stuff, so need to cast to
            avoid warnings.  */
-        s->address = ((char *) (size_t) symbol.st_value) + it->delta;
+        s->address = (const char *) (size_t) symbol.st_value + it->delta;
         s->size = symbol.st_size;
         if (s->size == 0)
             s->size = 16;
-        s->name = elf_strptr (it->elf,
-                              section_header.sh_link,
-                              symbol.st_name);
+        s->name = elf_strptr (it->elf, section_header.sh_link, symbol.st_name);
 
         ++it->symbols_count;
     }
@@ -534,9 +532,9 @@ char * reflect_symtab_format (const void * const * addresses,
         reflect_symtab_lookup (&object, &symbol, &offset, addresses[i]);
 
         if (verbose && symbol)
-            fprintf (f, "\t%s+%i\t(%s)\n", symbol, offset, object);
+            fprintf (f, "\t%s+%zi\t(%s)\n", symbol, offset, object);
         else if (verbose && object)
-            fprintf (f, "\t%s+%#x\n", object, offset);
+            fprintf (f, "\t%s+%#zx\n", object, offset);
         else if (symbol)
             fprintf (f, "\t%s\t(%s)\n", symbol, object);
         else if (object)
