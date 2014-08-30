@@ -92,7 +92,7 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
 
     do {
         unw_word_t ip = 0;
-        if (unw_get_reg (&cursor, UNW_TDEP_IP, &ip) < 0)
+        if (unw_get_reg (&cursor, UNW_TDEP_IP, &ip) < 0 || ip == 0)
             break;
         node = scg_put_node (node, ip, &new_node);
     }
