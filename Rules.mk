@@ -23,7 +23,7 @@ COMPILE = $(CC) $(DEPENDENCY_CFLAGS) $(CFLAGS)
 CCOMPILE = $(CXX) $(DEPENDENCY_CFLAGS) $(CXXFLAGS)
 ARCHIVE = ar rcvus
 LINK = $(LD) $(CFLAGS) $(LDFLAGS)
-LINK.so = $(LD) $(CFLAGS) $(LDFLAGS) $(PICFLAGS) -shared -Wl,-soname=$(@F)$(TT_MAJOR) -Wl,--no-undefined,--error-unresolved-symbols
+LINK.so = $(LD) $(CFLAGS) $(LDFLAGS) $(PICFLAGS) -shared -Wl,-soname=$(@F)$(MAJOR) -Wl,--no-undefined,--error-unresolved-symbols
 
 # If we need special PICFLAGS for building objects for shared libraries, then we
 # use TARGET-pic.o instead of TARGET.o for the object file, so we don't get
@@ -36,26 +36,15 @@ MAJOR =
 # Minor version string for shared libs.
 MINOR =
 
-# "$(call TT,BAR)" is "$($@ BAR)" if that's defined, else "$(BAR)".  This is
-# much like target-specific variables, but is not inherited by the
-# prerequisites.  Yes, spaces in variable names are valid!
-TT = $(if $(is_undefined_p.$(origin ${@F} $1)),$($1),$(${@F} $1))
-is_undefined_p.undefined = undefined
-
-# The TT instances we use.
-TT_LIBS = $(call TT,LIBS)
-TT_MAJOR = $(call TT,MAJOR)
-TT_MINOR = $(call TT,MINOR)
-
 ##### PATTERN RULES #####
 
 lib%.a:
 	$(ARCHIVE) $@ $^
 
 lib%.$(SO):
-	$(LINK.so) -o $@$(TT_MAJOR)$(TT_MINOR) $^ $(TT_LIBS)
-	$(if $(TT_MINOR),ln -sf $@$(TT_MAJOR)$(TT_MINOR) $@$(TT_MAJOR))
-	$(if $(TT_MAJOR),ln -sf $@$(TT_MAJOR) $@)
+	$(LINK.so) -o $@$(MAJOR)$(MINOR) $^ $(LIBS)
+	$(if $(MINOR),ln -sf $@$(MAJOR)$(MINOR) $@$(MAJOR))
+	$(if $(MAJOR),ln -sf $@$(MAJOR) $@)
 
 # Wheee.... 2-to-the-power-of-3 is 8!
 %.o: %.c
@@ -89,7 +78,7 @@ lib%.$(SO):
 # For an executable FOO, we must have FOO.o or FOOapp.o.  That stops this rule
 # being too nasty!
 %: %.o
-	$(LINK) -o $@ $^ $(TT_LIBS)
+	$(LINK) -o $@ $^ $(LIBS)
 
 %: %.c
 %: %.cc

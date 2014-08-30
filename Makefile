@@ -9,7 +9,9 @@ all: libscg.so scgtest
 
 libscg.so: alloc$(LO) node$(LO) output$(LO) pthread$(LO)
 libscg.so: mtrace/symboltable$(LO)
-libscg.so: automatic$(LO) version.ld -lunwind -lunwind-x86_64 -lelf -ldl
+libscg.so: automatic$(LO) version.ld
+
+libscg.so: private LIBS = -lunwind -lelf -ldl
 
 scgtest: libscgtestfuncs.so libscg.so
 
