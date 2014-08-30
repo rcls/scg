@@ -8,7 +8,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "atomic.h"
 #include "node.h"
 #include "scg.h"
 
@@ -96,7 +95,7 @@ static void scg_signal_handler (int signal, siginfo_t * info, void * p)
     }
     while (unw_step (&cursor) > 0);
 
-    scg_atomic_increment (&node->counter);
+    __atomic_add_fetch (&node->counter, 1, __ATOMIC_RELAXED);
 }
 
 
