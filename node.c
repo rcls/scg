@@ -12,8 +12,6 @@
 #include "node.h"
 #include "scg.h"
 
-//#define GOLDEN_PRIME 2663455159ul
-//#define GOLDEN_PRIME 11400714819323198549ul
 static const unsigned long GOLDEN_PRIME = sizeof(unsigned long) == 4
     ? 2663455159ul : 11400714819323198549ul;
 
@@ -143,7 +141,6 @@ void scg_initialize (void)
     sigemptyset (&action.sa_mask);
 
     sigaction (SIGPROF, &action, NULL);
-//   sigaction (SIGALRM, &action, NULL);
 
     action.sa_sigaction = user1_handler;
     sigaction (SIGUSR1, &action, NULL);
@@ -155,14 +152,3 @@ void scg_initialize (void)
 
     scg_thread_initialize();
 }
-
-// Dirty hack to monitor calls to new().
-/* void * _Znwj (unsigned int n) */
-/* { */
-/*     if (is_initialized) { */
-/*         ucontext_t c; */
-/*         getcontext (&c); */
-/*         scg_signal_handler (0, NULL, &c); */
-/*     } */
-/*     return malloc (n); */
-/* } */
